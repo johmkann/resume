@@ -283,6 +283,8 @@ body.scale-cv{
 }
 
 .pdf-export-root .resume{
+  display: grid;
+  grid-template-columns: var(--resume-left-column) 1fr;
   background: linear-gradient(
     to right,
     var(--container-color-alt) 0,
@@ -290,6 +292,19 @@ body.scale-cv{
     var(--container-color) var(--resume-left-column),
     var(--container-color) 100%
   );
+}
+
+.pdf-export-root .resume__left{
+  background-color: transparent;
+}
+
+.pdf-export-root .section-title,
+.pdf-export-root .profile__description{
+  text-align: initial;
+}
+
+.pdf-export-root .home__button-movil{
+  display: none !important;
 }
 
 body{
@@ -483,12 +498,17 @@ img{
 .home__button-movil{
   display: inline-block;
   border: 2px solid var(--text-color);
+  background-color: transparent;
   color: var(--title-color);
   padding: 1rem 2rem;
   border-radius: .25rem;
   transition: .3s;
   font-weight: var(--font-medium);
   margin-top: var(--mb-3);
+  font-family: var(--body-font);
+  font-size: var(--normal-font-size);
+  line-height: 1;
+  cursor: pointer;
 }
 
 .home__button-movil:hover{

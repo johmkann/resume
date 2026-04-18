@@ -101,6 +101,8 @@ let opt = {
     pagebreak:    { mode: ['css', 'legacy'] }
 }
 
+const PDF_DESKTOP_WIDTH = 968
+
 function waitForNextFrame(){
     return new Promise(resolve => {
         requestAnimationFrame(() => {
@@ -123,7 +125,7 @@ function waitForImages(container){
 }
 
 function createPdfClone(){
-    const resumeWidth = Math.ceil(areaCv.getBoundingClientRect().width)
+    const resumeWidth = Math.max(PDF_DESKTOP_WIDTH, Math.ceil(areaCv.getBoundingClientRect().width))
     const a4Height = Math.ceil((resumeWidth * 297) / 210)
 
     const exportRoot = document.createElement('div')
@@ -133,6 +135,8 @@ function createPdfClone(){
     exportContainer.className = 'bd-container'
     exportContainer.style.width = `${resumeWidth}px`
     exportContainer.style.maxWidth = `${resumeWidth}px`
+    exportContainer.style.marginLeft = '0'
+    exportContainer.style.marginRight = '0'
 
     const clone = areaCv.cloneNode(true)
 
@@ -157,7 +161,46 @@ function createPdfClone(){
     return { exportRoot, clone }
 }
 
-async function generateResume(){
+function downloadPdfFile(pdf, filename, popupWindow = null){
+    if (!pdf || typeof pdf.output !== 'function') {
+        throw new Error('PDF output is not available')
+    }
+
+    const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent)
+
+    if (isIOS) {
+        const dataUrl = pdf.output('dataurlstring')
+
+        if (popupWindow && !popupWindow.closed) {
+            popupWindow.location.href = dataUrl
+            return
+        }
+
+        window.open(dataUrl, '_blank')
+        return
+    }
+
+    const blob = pdf.output('blob')
+    const blobUrl = URL.createObjectURL(blob)
+
+    if (isMobile && popupWindow && !popupWindow.closed) {
+        popupWindow.location.href = blobUrl
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+        return
+    }
+
+    const downloadLink = document.createElement('a')
+    downloadLink.href = blobUrl
+    downloadLink.download = filename
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    downloadLink.remove()
+
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+}
+
+async function generateResume(popupWindow = null){
     if (!window.html2pdf || !areaCv) {
         throw new Error('html2pdf is not available')
     }
@@ -167,7 +210,7 @@ async function generateResume(){
     try {
         await waitForImages(exportRoot)
         await waitForNextFrame()
-        opt.html2canvas.windowWidth = exportRoot.scrollWidth
+        opt.html2canvas.windowWidth = PDF_DESKTOP_WIDTH
         const worker = html2pdf().set(opt).from(clone).toPdf()
 
         try {
@@ -191,7 +234,7 @@ async function generateResume(){
             if (
                 pdf &&
                 typeof pdf.deletePage === 'function' &&
-                typeof pdf.save === 'function'
+                typeof pdf.output === 'function'
             ) {
                 let pageCount = getPageCount()
 
@@ -200,14 +243,16 @@ async function generateResume(){
                     pageCount = getPageCount()
                 }
 
-                pdf.save(opt.filename)
+                downloadPdfFile(pdf, opt.filename, popupWindow)
                 return
             }
         } catch (trimError) {
             console.error('PDF page trimming failed, falling back to standard save:', trimError)
         }
 
-        await html2pdf().set(opt).from(clone).save()
+        const fallbackWorker = html2pdf().set(opt).from(clone).toPdf()
+        const fallbackPdf = await fallbackWorker.get('pdf')
+        downloadPdfFile(fallbackPdf, opt.filename, popupWindow)
     } finally {
         exportRoot.remove()
     }
@@ -220,11 +265,17 @@ async function handleResumeDownload(event){
     const buttons = [resumeButton, resumeButtonMobile].filter(Boolean)
     if (buttons.some(button => button.classList.contains('is-generating'))) return
 
+    const isMobileTrigger = event?.currentTarget === resumeButtonMobile
+    const popupWindow = isMobileTrigger ? window.open('', '_blank') : null
+
     buttons.forEach(button => button.classList.add('is-generating'))
 
     try {
-        await generateResume()
+        await generateResume(popupWindow)
     } catch (error) {
+        if (popupWindow && !popupWindow.closed) {
+            popupWindow.close()
+        }
         console.error('PDF generation failed:', error)
     } finally {
         buttons.forEach(button => button.classList.remove('is-generating'))
