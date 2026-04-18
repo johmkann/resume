@@ -102,6 +102,7 @@ let opt = {
 }
 
 const PDF_DESKTOP_WIDTH = 968
+const MOBILE_RESUME_PDF_PATH = 'assets/pdf/myResume.pdf'
 
 function waitForNextFrame(){
     return new Promise(resolve => {
@@ -159,6 +160,23 @@ function createPdfClone(){
     clone.style.overflow = 'hidden'
 
     return { exportRoot, clone }
+}
+
+function downloadStaticResumePdf(){
+    const pdfUrl = new URL(MOBILE_RESUME_PDF_PATH, window.location.href).toString()
+    const isIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
+
+    if (isIOS) {
+        window.open(pdfUrl, '_blank')
+        return
+    }
+
+    const downloadLink = document.createElement('a')
+    downloadLink.href = pdfUrl
+    downloadLink.download = 'myResume.pdf'
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    downloadLink.remove()
 }
 
 function downloadPdfFile(pdf, filename, popupWindow = null){
@@ -262,11 +280,14 @@ async function handleResumeDownload(event){
     if (event) event.preventDefault()
     if (!areaCv) return
 
+    if (event?.currentTarget === resumeButtonMobile) {
+        downloadStaticResumePdf()
+        return
+    }
+
     const buttons = [resumeButton, resumeButtonMobile].filter(Boolean)
     if (buttons.some(button => button.classList.contains('is-generating'))) return
-
-    const isMobileTrigger = event?.currentTarget === resumeButtonMobile
-    const popupWindow = isMobileTrigger ? window.open('', '_blank') : null
+    const popupWindow = null
 
     buttons.forEach(button => button.classList.add('is-generating'))
 
