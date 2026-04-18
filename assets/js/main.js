@@ -89,6 +89,7 @@ themeButton.addEventListener('click', () => {
 let areaCv = document.getElementById('area-cv');
 
 let resumeButton = document.getElementById('resume-button');
+let resumeButtonMobile = document.getElementById('resume-button-mobile');
 
 // Html2pdf options
 let opt = {
@@ -212,19 +213,31 @@ async function generateResume(){
     }
 }
 
-// When the button is clicked, it executes the three functions
-if (resumeButton && areaCv) {
-    resumeButton.addEventListener('click', async () =>{
-        if (resumeButton.classList.contains('is-generating')) return
+async function handleResumeDownload(event){
+    if (event) event.preventDefault()
+    if (!areaCv) return
 
-        resumeButton.classList.add('is-generating')
+    const buttons = [resumeButton, resumeButtonMobile].filter(Boolean)
+    if (buttons.some(button => button.classList.contains('is-generating'))) return
 
-        try {
-            await generateResume()
-        } catch (error) {
-            console.error('PDF generation failed:', error)
-        } finally {
-            resumeButton.classList.remove('is-generating')
-        }
-    })
+    buttons.forEach(button => button.classList.add('is-generating'))
+
+    try {
+        await generateResume()
+    } catch (error) {
+        console.error('PDF generation failed:', error)
+    } finally {
+        buttons.forEach(button => button.classList.remove('is-generating'))
+    }
+}
+
+// When the button is clicked, it executes the PDF export
+if (areaCv) {
+    if (resumeButton) {
+        resumeButton.addEventListener('click', handleResumeDownload)
+    }
+
+    if (resumeButtonMobile) {
+        resumeButtonMobile.addEventListener('click', handleResumeDownload)
+    }
 }
